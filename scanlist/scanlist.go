@@ -58,6 +58,7 @@ func (b *BaseScanner) Next() *Element {
 	e.Token = b.Dict.Get(s,t)
 	e.TokenText = s
 	e.Pos = b.Pos()
+	e.Dict = b.Dict
 	e.bs = b
 	return e
 }
@@ -66,6 +67,7 @@ type Element struct {
 	Token rune
 	TokenText string
 	Pos scanner.Position
+	Dict TokenDict // for Include-Functions.
 	bs *BaseScanner
 	e  *Element
 }
@@ -75,5 +77,20 @@ func (e *Element) Next() *Element {
 	e.bs = nil
 	return e.e
 }
-
-
+func (e *Element) SafePos() (p scanner.Position) {
+	if e!=nil { p = e.Pos }
+	return
+}
+func (e *Element) SafeToken() (t rune) {
+	t = scanner.EOF
+	if e!=nil { t = e.Token }
+	return
+}
+func (e *Element) SafeTokenText() (tt string) {
+	if e!=nil { tt = e.TokenText }
+	return
+}
+func (e *Element) SafeNext() *Element {
+	if e!=nil { return e.Next() }
+	return nil
+}

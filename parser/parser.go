@@ -225,7 +225,7 @@ func (p *Parser) matchLowLevel(n string,phaseTwo bool,tokens *scanlist.Element) 
 	if !ok { panic("rule not defined") }
 	r1 := rp.phase1.Parse(p,tokens,nil)
 	if r1.Result != RESULT_OK { return r1 }
-	r2 := LStar{rp.phase2}.Parse(p,tokens,r1.Data)
+	r2 := LStar{rp.phase2}.Parse(p,r1.Next,r1.Data)
 	return r2
 }
 func (p *Parser) Match(n string,tokens *scanlist.Element) ParserResult {

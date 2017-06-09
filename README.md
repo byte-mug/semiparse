@@ -7,13 +7,14 @@ package main
 
 import "github.com/byte-mug/semiparse/scanlist"
 import "github.com/byte-mug/semiparse/parser"
+import "github.com/byte-mug/semiparse/cparse"
 import "strings"
 import "fmt"
 import "text/scanner"
 
 const src = `
-A B
-C
+a  = b + c + d;
+//a = b + c;
 `
 func Expr(p *parser.Parser,tokens *scanlist.Element, left interface{}) parser.ParserResult {
 	if tokens!=nil {
@@ -29,20 +30,26 @@ func ExprTrail(p *parser.Parser,tokens *scanlist.Element, left interface{}) pars
 }
 func buildParser() *parser.Parser {
 	p := new(parser.Parser).Construct()
-	p.Define("Expr",false,parser.Pfunc(Expr))
-	p.Define("Expr",true,parser.Pfunc(ExprTrail))
+	//p.Define("Expr",false,parser.Pfunc(Expr))
+	//p.Define("Expr",true,parser.Pfunc(ExprTrail))
+	cparse.RegisterExpr(p)
 	return p
 }
 
 func main() {
 	s := new(scanlist.BaseScanner)
 	s.Init(strings.NewReader(src))
+	s.Dict = cparse.CKeywords
 	l := s.Next()
 	p := buildParser()
 	//for ;l!=nil; l = l.Next() {
 	//	fmt.Println(l.Token,l.TokenText,l.Pos)
 	//}
-	fmt.Println(p.Match("Expr",l))
+	res := p.Match("Expr",l)
+	fmt.Println(res.Result)
+	fmt.Println(res.Data)
 }
+
+
 
 ```
