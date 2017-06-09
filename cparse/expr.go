@@ -152,9 +152,9 @@ func c_expr_trailer(p *parser.Parser,tokens *scanlist.Element, left interface{})
 	ok,t = parser.FastMatch(tokens,'=','='); if ok { s="==" }
 	if !ok { ok,t = parser.FastMatch(tokens,'!','='); if ok { s="!=" } }
 	if !ok { ok,t = parser.FastMatch(tokens,'<','='); if ok { s="<=" } }
-	if !ok { ok,t = parser.FastMatch(tokens,'<','<'); if ok { s="<<" } }
+	if !ok { ok,t = parser.FastMatch(tokens,'<'); if ok { s="<" } }
 	if !ok { ok,t = parser.FastMatch(tokens,'>','='); if ok { s=">=" } }
-	if !ok { ok,t = parser.FastMatch(tokens,'>','>'); if ok { s=">>" } }
+	if !ok { ok,t = parser.FastMatch(tokens,'>'); if ok { s=">" } }
 	if ok {
 		sub := p.MatchNoLeftRecursion("Expr",t)
 		if sub.Result==parser.RESULT_OK {
