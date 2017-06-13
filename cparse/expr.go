@@ -130,7 +130,7 @@ func c_expr(p *parser.Parser,tokens *scanlist.Element, left interface{}) parser.
 	case scanner.Float: return parser.ResultOk(tokens.Next(),&Expr{E_FLOAT,tokens.TokenText,nil,tokens.Pos})
 	case scanner.Char: return parser.ResultOk(tokens.Next(),&Expr{E_CHAR,tokens.TokenText,nil,tokens.Pos})
 	case scanner.String,scanner.RawString: return parser.ResultOk(tokens.Next(),&Expr{E_STRING,tokens.TokenText,nil,tokens.Pos})
-	case '*','+','-','!','~':{
+	case '*','+','-','!','~','&':{
 		sub := p.MatchNoLeftRecursion("Expr",tokens.Next())
 		if sub.Result==parser.RESULT_OK {
 			sub.Data = &Expr{E_UNARY_OP,tokens.TokenText,aR(sub.Data),tokens.Pos}
