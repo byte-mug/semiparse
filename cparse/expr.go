@@ -40,7 +40,8 @@ const (
 	
 	E_INCR
 	E_DECR
-	E_FIELD
+	E_FIELD_DOT // Expr.Field
+	E_FIELD_PTR // Expr->Field
 	E_UNARY_OP
 	E_BINARY_OP
 	E_BINARY_OP_ASSIGN
@@ -64,7 +65,9 @@ func (e *Expr) String() string {
 		return fmt.Sprint("(",e.Data[0],e.Text,"=",e.Data[1],")")
 	case E_INCR,E_DECR:
 		return fmt.Sprint("(",e.Data,e.Text,")")
-	case E_FIELD:
+	case E_FIELD_DOT:
+		return fmt.Sprint("(",e.Data,".",e.Text,")")
+	case E_FIELD_PTR:
 		return fmt.Sprint("(",e.Data,"->",e.Text,")")
 	case E_UNARY_OP:
 		return fmt.Sprintf("(",e.Text,e.Data,")")
@@ -112,7 +115,10 @@ func c_expr_trailer(p *parser.Parser,tokens *scanlist.Element, left interface{})
 		return parser.ResultOk(t,&Expr{E_DECR,"--",aR(left)})
 	}
 	if ok,t := parser.FastMatch(tokens,'-','>',scanner.Ident); ok {
-		return parser.ResultOk(t,&Expr{E_FIELD,tokens.Next().Next().TokenText,aR(left)})
+		return parser.ResultOk(t,&Expr{E_FIELD_PTR,tokens.Next().Next().TokenText,aR(left)})
+	}
+	if ok,t := parser.FastMatch(tokens,'.',scanner.Ident); ok {
+		return parser.ResultOk(t,&Expr{E_FIELD_DOT,tokens.Next().TokenText,aR(left)})
 	}
 	/*
 	TODO: function(call);
