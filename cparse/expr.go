@@ -53,10 +53,14 @@ const (
 
 func aR(i ...interface{}) []interface{} { return i }
 
+/* When in doubt, use this! */
+var pOS = scanner.Position{}
+
 type Expr struct{
 	Type uint
 	Text string
 	Data []interface{}
+	Pos scanner.Position
 }
 func (e *Expr) String() string {
 	if e==nil { return "NIL" }
@@ -102,15 +106,15 @@ func c_expr_list(p *parser.Parser,tokens *scanlist.Element, sep rune, r []interf
 func c_expr(p *parser.Parser,tokens *scanlist.Element, left interface{}) parser.ParserResult {
 	if tokens==nil { return parser.ResultFail("EOF!",scanner.Position{}) }
 	switch tokens.Token {
-	case scanner.Ident: return parser.ResultOk(tokens.Next(),&Expr{E_VAR,tokens.TokenText,nil})
-	case scanner.Int: return parser.ResultOk(tokens.Next(),&Expr{E_INT,tokens.TokenText,nil})
-	case scanner.Float: return parser.ResultOk(tokens.Next(),&Expr{E_FLOAT,tokens.TokenText,nil})
-	case scanner.Char: return parser.ResultOk(tokens.Next(),&Expr{E_CHAR,tokens.TokenText,nil})
-	case scanner.String,scanner.RawString: return parser.ResultOk(tokens.Next(),&Expr{E_STRING,tokens.TokenText,nil})
+	case scanner.Ident: return parser.ResultOk(tokens.Next(),&Expr{E_VAR,tokens.TokenText,nil,tokens.Pos})
+	case scanner.Int: return parser.ResultOk(tokens.Next(),&Expr{E_INT,tokens.TokenText,nil,tokens.Pos})
+	case scanner.Float: return parser.ResultOk(tokens.Next(),&Expr{E_FLOAT,tokens.TokenText,nil,tokens.Pos})
+	case scanner.Char: return parser.ResultOk(tokens.Next(),&Expr{E_CHAR,tokens.TokenText,nil,tokens.Pos})
+	case scanner.String,scanner.RawString: return parser.ResultOk(tokens.Next(),&Expr{E_STRING,tokens.TokenText,nil,tokens.Pos})
 	case '*','+','-','!','~':{
 		sub := p.MatchNoLeftRecursion("Expr",tokens.Next())
 		if sub.Result==parser.RESULT_OK {
-			sub.Data = &Expr{E_UNARY_OP,tokens.TokenText,aR(sub.Data)}
+			sub.Data = &Expr{E_UNARY_OP,tokens.TokenText,aR(sub.Data),tokens.Pos}
 		}
 		return sub
 	    }
@@ -128,16 +132,16 @@ func c_expr(p *parser.Parser,tokens *scanlist.Element, left interface{}) parser.
 }
 func c_expr_trailer(p *parser.Parser,tokens *scanlist.Element, left interface{}) parser.ParserResult {
 	if ok,t := parser.FastMatch(tokens,'+','+'); ok {
-		return parser.ResultOk(t,&Expr{E_INCR,"++",aR(left)})
+		return parser.ResultOk(t,&Expr{E_INCR,"++",aR(left),tokens.Pos})
 	}
 	if ok,t := parser.FastMatch(tokens,'-','-'); ok {
-		return parser.ResultOk(t,&Expr{E_DECR,"--",aR(left)})
+		return parser.ResultOk(t,&Expr{E_DECR,"--",aR(left),tokens.Pos})
 	}
 	if ok,t := parser.FastMatch(tokens,'-','>',scanner.Ident); ok {
-		return parser.ResultOk(t,&Expr{E_FIELD_PTR,tokens.Next().Next().TokenText,aR(left)})
+		return parser.ResultOk(t,&Expr{E_FIELD_PTR,tokens.Next().Next().TokenText,aR(left),tokens.Pos})
 	}
 	if ok,t := parser.FastMatch(tokens,'.',scanner.Ident); ok {
-		return parser.ResultOk(t,&Expr{E_FIELD_DOT,tokens.Next().TokenText,aR(left)})
+		return parser.ResultOk(t,&Expr{E_FIELD_DOT,tokens.Next().TokenText,aR(left),tokens.Pos})
 	}
 	if tokens.SafeToken()=='(' /*)*/ {
 		sub := c_expr_list(p,tokens.Next(),',',aR(left))
@@ -145,7 +149,7 @@ func c_expr_trailer(p *parser.Parser,tokens *scanlist.Element, left interface{})
 			e,t := parser.Match(parser.Textify,sub.Next,')')
 			if e!=nil { return parser.ResultFail(fmt.Sprint(e),sub.Next.SafePos()) }
 			sub.Next = t
-			sub.Data = &Expr{E_FUNCTION_CALL,"()",sub.Data.([]interface{})}
+			sub.Data = &Expr{E_FUNCTION_CALL,"()",sub.Data.([]interface{}),tokens.Pos}
 		}
 		return sub
 	}
@@ -156,7 +160,7 @@ func c_expr_trailer(p *parser.Parser,tokens *scanlist.Element, left interface{})
 		if e!=nil { return parser.ResultFail(fmt.Sprint(e),sub.Next.SafePos()) }
 		sub2 := p.MatchNoLeftRecursion("Expr",t)
 		if sub2.Result!=parser.RESULT_OK { return sub2 }
-		return parser.ResultOk(sub2.Next,&Expr{E_CONDITIONAL,"?:",aR(left,sub.Data,sub2.Data)})
+		return parser.ResultOk(sub2.Next,&Expr{E_CONDITIONAL,"?:",aR(left,sub.Data,sub2.Data),tokens.Pos})
 	}
 	
 	
@@ -181,7 +185,7 @@ func c_expr_trailer(p *parser.Parser,tokens *scanlist.Element, left interface{})
 		}
 		sub := p.MatchNoLeftRecursion("Expr",t)
 		if sub.Result==parser.RESULT_OK {
-			sub.Data = &Expr{op,s,aR(left,sub.Data)}
+			sub.Data = &Expr{op,s,aR(left,sub.Data),tokens.Pos}
 		}
 		return sub
 		/*
@@ -200,7 +204,7 @@ func c_expr_trailer(p *parser.Parser,tokens *scanlist.Element, left interface{})
 	if ok {
 		sub := p.MatchNoLeftRecursion("Expr",t)
 		if sub.Result==parser.RESULT_OK {
-			sub.Data = &Expr{E_COMPARE,s,aR(left,sub.Data)}
+			sub.Data = &Expr{E_COMPARE,s,aR(left,sub.Data),tokens.Pos}
 		}
 		return sub
 	}
@@ -210,7 +214,7 @@ func c_expr_trailer(p *parser.Parser,tokens *scanlist.Element, left interface{})
 	if ok {
 		sub := p.Match("Expr",t)
 		if sub.Result==parser.RESULT_OK {
-			sub.Data = &Expr{E_ASSIGN,"=",aR(left,sub.Data)}
+			sub.Data = &Expr{E_ASSIGN,"=",aR(left,sub.Data),tokens.Pos}
 		}
 		return sub
 	}
