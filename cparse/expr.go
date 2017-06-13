@@ -48,6 +48,7 @@ const (
 	E_COMPARE
 	E_ASSIGN
 	E_FUNCTION_CALL // Expr( [Expr [,Expr]* ] )
+	E_CONDITIONAL
 )
 
 func aR(i ...interface{}) []interface{} { return i }
@@ -64,8 +65,10 @@ func (e *Expr) String() string {
 		return fmt.Sprint("(",e.Data[0],e.Text,e.Data[1],")")
 	case E_BINARY_OP_ASSIGN:
 		return fmt.Sprint("(",e.Data[0],e.Text,"=",e.Data[1],")")
-	case E_INCR,E_DECR:
-		return fmt.Sprint("(",e.Data[0],e.Text,")")
+	case E_INCR:
+		return fmt.Sprint("(",e.Data[0],"++)")
+	case E_DECR:
+		return fmt.Sprint("(",e.Data[0],"--)")
 	case E_FIELD_DOT:
 		return fmt.Sprint("(",e.Data,".",e.Text,")")
 	case E_FIELD_PTR:
@@ -78,6 +81,8 @@ func (e *Expr) String() string {
 		return fmt.Sprint("(",e.Data[0],"=",e.Data[1],")")
 	case E_FUNCTION_CALL:
 		return fmt.Sprint("(",e.Data[0]," (",e.Data[1:],") )")
+	case E_CONDITIONAL:
+		return fmt.Sprint("(",e.Data[0],"?",e.Data[1],":",e.Data[2],")")
 	}
 	return fmt.Sprint("(",e.Type,"#",e.Text,e.Data,")")
 }
@@ -144,6 +149,16 @@ func c_expr_trailer(p *parser.Parser,tokens *scanlist.Element, left interface{})
 		}
 		return sub
 	}
+	if tokens.SafeToken()=='?' {
+		sub := p.Match("Expr",tokens.Next())
+		if sub.Result!=parser.RESULT_OK { return sub }
+		e,t := parser.Match(parser.Textify,sub.Next,':')
+		if e!=nil { return parser.ResultFail(fmt.Sprint(e),sub.Next.SafePos()) }
+		sub2 := p.MatchNoLeftRecursion("Expr",t)
+		if sub2.Result!=parser.RESULT_OK { return sub2 }
+		return parser.ResultOk(sub2.Next,&Expr{E_CONDITIONAL,"?:",aR(left,sub.Data,sub2.Data)})
+	}
+	
 	
 	ok,t := parser.FastMatch(tokens,'+')
 	s := ""
