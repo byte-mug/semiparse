@@ -47,6 +47,7 @@ const (
 	E_BINARY_OP_ASSIGN
 	E_COMPARE
 	E_ASSIGN
+	E_FUNCTION_CALL // Expr( [Expr [,Expr]* ] )
 )
 
 func aR(i ...interface{}) []interface{} { return i }
@@ -64,22 +65,35 @@ func (e *Expr) String() string {
 	case E_BINARY_OP_ASSIGN:
 		return fmt.Sprint("(",e.Data[0],e.Text,"=",e.Data[1],")")
 	case E_INCR,E_DECR:
-		return fmt.Sprint("(",e.Data,e.Text,")")
+		return fmt.Sprint("(",e.Data[0],e.Text,")")
 	case E_FIELD_DOT:
 		return fmt.Sprint("(",e.Data,".",e.Text,")")
 	case E_FIELD_PTR:
 		return fmt.Sprint("(",e.Data,"->",e.Text,")")
 	case E_UNARY_OP:
-		return fmt.Sprintf("(",e.Text,e.Data,")")
+		return fmt.Sprint("(",e.Text,e.Data[0],")")
 	case E_VAR,E_INT,E_FLOAT,E_CHAR,E_STRING:
 		return fmt.Sprint(e.Text)
 	case E_ASSIGN:
 		return fmt.Sprint("(",e.Data[0],"=",e.Data[1],")")
+	case E_FUNCTION_CALL:
+		return fmt.Sprint("(",e.Data[0]," (",e.Data[1:],") )")
 	}
 	return fmt.Sprint("(",e.Type,"#",e.Text,e.Data,")")
 }
 
-
+func c_expr_list(p *parser.Parser,tokens *scanlist.Element, sep rune, r []interface{}) parser.ParserResult {
+	sub := p.Match("Expr",tokens)
+	if sub.Result!=parser.RESULT_OK { return sub }
+	r = append(r,sub.Data)
+	for sub.Next.SafeToken() == sep {
+		sub = p.Match("Expr",sub.Next.Next())
+		if sub.Result!=parser.RESULT_OK { return sub }
+		r = append(r,sub.Data)
+	}
+	sub.Data = r
+	return sub
+}
 func c_expr(p *parser.Parser,tokens *scanlist.Element, left interface{}) parser.ParserResult {
 	if tokens==nil { return parser.ResultFail("EOF!",scanner.Position{}) }
 	switch tokens.Token {
@@ -120,9 +134,16 @@ func c_expr_trailer(p *parser.Parser,tokens *scanlist.Element, left interface{})
 	if ok,t := parser.FastMatch(tokens,'.',scanner.Ident); ok {
 		return parser.ResultOk(t,&Expr{E_FIELD_DOT,tokens.Next().TokenText,aR(left)})
 	}
-	/*
-	TODO: function(call);
-	*/
+	if tokens.SafeToken()=='(' /*)*/ {
+		sub := c_expr_list(p,tokens.Next(),',',aR(left))
+		if sub.Result==parser.RESULT_OK {/*(*/
+			e,t := parser.Match(parser.Textify,sub.Next,')')
+			if e!=nil { return parser.ResultFail(fmt.Sprint(e),sub.Next.SafePos()) }
+			sub.Next = t
+			sub.Data = &Expr{E_FUNCTION_CALL,"()",sub.Data.([]interface{})}
+		}
+		return sub
+	}
 	
 	ok,t := parser.FastMatch(tokens,'+')
 	s := ""
