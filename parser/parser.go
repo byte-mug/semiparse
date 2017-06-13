@@ -214,6 +214,20 @@ func (p *Parser) Define(n string,left bool,r ParseRule) {
 		rp.phase1 = append(rp.phase1,r)
 	}
 }
+
+// Like .Define(), but does prepend rather than append!
+func (p *Parser) DefineBefore(n string,left bool,r ParseRule) {
+	rp,ok := p.rules[n]
+	if !ok {
+		rp = new(ruleParser)
+		p.rules[n] = rp
+	}
+	if left {
+		rp.phase2 = append(OR{r},rp.phase2...)
+	} else {
+		rp.phase1 = append(OR{r},rp.phase1...)
+	}
+}
 func (p *Parser) TouchRule(n string) {
 	_,ok := p.rules[n]
 	if !ok {

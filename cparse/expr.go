@@ -49,6 +49,8 @@ const (
 	E_ASSIGN
 	E_FUNCTION_CALL // Expr( [Expr [,Expr]* ] )
 	E_CONDITIONAL
+	E_CAST
+	E_INDEX
 )
 
 func aR(i ...interface{}) []interface{} { return i }
@@ -87,6 +89,10 @@ func (e *Expr) String() string {
 		return fmt.Sprint("(",e.Data[0]," (",e.Data[1:],") )")
 	case E_CONDITIONAL:
 		return fmt.Sprint("(",e.Data[0],"?",e.Data[1],":",e.Data[2],")")
+	case E_CAST:
+		return fmt.Sprint("((",e.Data[0],")",e.Data[1],")")
+	case E_INDEX:
+		return fmt.Sprint(e.Data[0],"[",e.Data[1],"]")
 	}
 	return fmt.Sprint("(",e.Type,"#",e.Text,e.Data,")")
 }
@@ -101,6 +107,19 @@ func c_expr_list(p *parser.Parser,tokens *scanlist.Element, sep rune, r []interf
 		r = append(r,sub.Data)
 	}
 	sub.Data = r
+	return sub
+}
+func c_expr_cast(p *parser.Parser,tokens *scanlist.Element, left interface{}) parser.ParserResult {
+	if tokens.SafeToken() != '(' /*)*/ { return parser.ResultFail("No match, next rule!",tokens.SafePos()) }
+	tp := p.Match("Type",tokens.Next())
+	if tp.Result!=parser.RESULT_OK { return tp }
+	
+	e,t := parser.Match(parser.Textify,tp.Next,/*(*/')')
+	if e!=nil { return parser.ResultFail(fmt.Sprint(e),tp.Next.SafePos()) }
+	sub := p.MatchNoLeftRecursion("Expr",t)
+	if sub.Result==parser.RESULT_OK {
+		sub.Data = &Expr{E_CAST,"cast",aR(tp.Data,sub.Data),tokens.Pos}
+	}
 	return sub
 }
 func c_expr(p *parser.Parser,tokens *scanlist.Element, left interface{}) parser.ParserResult {
@@ -150,6 +169,16 @@ func c_expr_trailer(p *parser.Parser,tokens *scanlist.Element, left interface{})
 			if e!=nil { return parser.ResultFail(fmt.Sprint(e),sub.Next.SafePos()) }
 			sub.Next = t
 			sub.Data = &Expr{E_FUNCTION_CALL,"()",sub.Data.([]interface{}),tokens.Pos}
+		}
+		return sub
+	}
+	if tokens.SafeToken()=='[' /*]*/ {
+		sub := p.Match("Expr",tokens.Next())
+		if sub.Result==parser.RESULT_OK {
+			e,t := parser.Match(parser.Textify,sub.Next,/*[*/']')
+			if e!=nil { return parser.ResultFail(fmt.Sprint(e),sub.Next.SafePos()) }
+			sub.Next = t
+			sub.Data = &Expr{E_INDEX,"[]",aR(left,sub.Data),tokens.Pos}
 		}
 		return sub
 	}
@@ -227,4 +256,12 @@ func RegisterExpr(p *parser.Parser) {
 	p.Define("Expr",true,parser.Pfunc(c_expr_trailer))
 }
 
+/*
+Should be called only after RegisterExpr()!
+Adds the casting operation (Type)Expr.
+*/
+func RegisterExprCast(p *parser.Parser) {
+	p.TouchRule("Type")
+	p.DefineBefore("Expr",false,parser.Pfunc(c_expr_cast))
+}
 

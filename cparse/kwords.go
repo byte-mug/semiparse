@@ -35,6 +35,7 @@ const (
 	C_DO
 	C_WHILE
 	C_FOR
+	C_CONST
 )
 
 var CKeywords = scanlist.TokenDict{
@@ -43,5 +44,6 @@ var CKeywords = scanlist.TokenDict{
 	"do":C_DO,
 	"while":C_WHILE,
 	"for":C_FOR,
+	"const":C_CONST,
 }
 
