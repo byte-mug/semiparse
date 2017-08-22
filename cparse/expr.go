@@ -163,6 +163,7 @@ func c_expr_trailer(p *parser.Parser,tokens *scanlist.Element, left interface{})
 		return parser.ResultOk(t,&Expr{E_FIELD_DOT,tokens.Next().TokenText,aR(left),tokens.Pos})
 	}
 	if tokens.SafeToken()=='(' /*)*/ {
+		if tokens.Next().SafeToken() == /*(*/')' { return parser.ResultOk(tokens.Next().Next(),&Expr{E_FUNCTION_CALL,"()",aR(left),tokens.Pos}) }
 		sub := c_expr_list(p,tokens.Next(),',',aR(left))
 		if sub.Result==parser.RESULT_OK {/*(*/
 			e,t := parser.Match(parser.Textify,sub.Next,')')

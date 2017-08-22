@@ -53,11 +53,11 @@ var unexpected_syntax = fmt.Errorf("Unexpected Syntax")
 func Match(f func(rune) string,t *scanlist.Element,rs ...rune) (error,*scanlist.Element) {
 	for _,r := range rs {
 		if t==nil {
-			if f!=nil { return unexpected_eof,t }
+			if f==nil { return unexpected_eof,t }
 			return fmt.Errorf("Unexpected End-Of-File (EOF), expected %s",f(r)),t
 		}
 		if t.Token!=r {
-			if f!=nil { return unexpected_syntax,t }
+			if f==nil { return unexpected_syntax,t }
 			return fmt.Errorf("Unexpected %s, expected %s",f(t.Token),f(r)),t
 		}
 		t = t.Next()

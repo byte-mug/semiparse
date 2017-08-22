@@ -30,6 +30,7 @@ package parser
 
 import "text/scanner"
 import "github.com/byte-mug/semiparse/scanlist"
+import "fmt"
 
 const NONE = uint(0)
 const (
@@ -48,6 +49,16 @@ type ParserResult struct{
 	Data interface{} // The syntax-tree on success; the error message on failure.
 	Pos scanner.Position
 }
+
+// p.Result==RESULT_OK
+func (p ParserResult) Ok() bool { return p.Result==RESULT_OK }
+
+// p.Result==RESULT_FAILED_CUT
+func (p ParserResult) Cut() bool { return p.Result==RESULT_FAILED_CUT }
+
+// p.Result==RESULT_FAILED
+func (p ParserResult) TryNextRule() bool { return p.Result==RESULT_FAILED }
+
 func ResultOk(next *scanlist.Element,tree interface{}) ParserResult {
 	return ParserResult{RESULT_OK,next,tree,scanner.Position{}}
 }
@@ -83,7 +94,7 @@ func (o OR) Parse(p *Parser,tokens *scanlist.Element, left interface{}) (opr Par
 		}
 	}
 	if fail { return }
-	return ResultFail("no rules!",tokens.Pos)
+	return ResultFail("no rules!",tokens.SafePos())
 }
 
 // (Inner)*
@@ -165,6 +176,43 @@ func (s ArrayPlus) Parse(p *Parser,tokens *scanlist.Element, left interface{}) (
 	}
 }
 
+type Required struct {
+	Token rune
+	Errf  func(rune) string
+}
+func (r Required) Parse(p *Parser,tokens *scanlist.Element, left interface{}) (ParserResult) {
+	err,t := Match(r.Errf,tokens,r.Token)
+	if err!=nil { return ResultFail(fmt.Sprint(err),tokens.SafePos()) }
+	return ResultOk(t,tokens.SafeTokenText())
+}
+
+type RequireText struct {
+	Text string
+}
+func (r RequireText) Parse(p *Parser,tokens *scanlist.Element, left interface{}) (ParserResult) {
+	if tokens.SafeTokenText()!=r.Text { return ResultFail(fmt.Sprint("Requirement not met: '%s' != '%s'",tokens.SafeTokenText(),r.Text),tokens.SafePos()) }
+	return ResultOk(tokens.SafeNext(),tokens.SafeTokenText())
+}
+
+// (Token|Inner Token) => Inner or nil
+type TokenFinishedOptional struct {
+	Inner ParseRule
+	Token rune
+}
+func (s TokenFinishedOptional) Parse(p *Parser,tokens *scanlist.Element, left interface{}) (ParserResult) {
+	if tokens.SafeToken()==s.Token { return ResultOk(tokens.Next(),nil) }
+	ir := s.Inner.Parse(p,tokens,left)
+	if ir.Result != RESULT_OK { return ir }
+	err,t := Match(Textify,ir.Next,s.Token)
+	if err!=nil { return ResultFail(fmt.Sprint(err),ir.Next.SafePos()) }
+	ir.Next = t
+	return ir
+}
+
+type Delegate string
+func (d Delegate) Parse(p *Parser,tokens *scanlist.Element, left interface{}) (ParserResult) {
+	return p.Match(string(d),tokens)
+}
 
 type LSeq []ParseRule
 func (s LSeq) Parse(p *Parser,tokens *scanlist.Element, left interface{}) (opr ParserResult) {
@@ -194,9 +242,15 @@ type ruleParser struct{
 	phase1 OR
 	phase2 OR
 }
+func (r *ruleParser) String() string{
+	return fmt.Sprint(r.phase1,r.phase2)
+}
 
 type Parser struct{
 	rules map[string]*ruleParser
+}
+func (p *Parser) String() string{
+	return fmt.Sprint("{",p.rules,"}")
 }
 func (p *Parser) Construct() *Parser {
 	p.rules = make(map[string]*ruleParser)
